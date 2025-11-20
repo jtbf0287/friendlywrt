@@ -1,64 +1,64 @@
 name: Build FriendlyWrt 24.10 R6C Full-Plugins
 
 on:
-  workflow_dispatch:        # 手动触发
+  workflow_dispatch:
   schedule:
-    - cron: '0 22 * * *'    # 每天 06:00 BJT 自动编
+    - cron: '0 22 * * *'
+
+env:
+  TZ: 'Asia/Shanghai'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment:
+     FILE_NAME: friendlywrt-24.10-rockchip-armv8-nanopi-r6c-squashfs-sysupgrade.img.gz
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout
+       uses: actions/checkout@v3
 
-      - name: Install build tools
-        run: |
-          sudo apt-get update
-          sudo apt install -y build-essential ccache ecryptfs-utils \
-            git gawk make ncurses-dev libssl-dev python3-distutils \
-            unzip rsync zstd libz-dev
+    - name: Install packages
+       run: |
+        sudo apt update
+        sudo apt install -y build-essential ccache ecryptfs-utils git gawk make ncurses-dev libssl-dev python3-distutils unzip rsync zstd libz-dev
 
-      - name: Update & Install feeds
-        run: |
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+    - name: Update & Install feeds
+       run: |
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
 
-      - name: Configure firmware
-        run: |
-          cat > .config <<EOF
-          CONFIG_TARGET_rockchip=y
-          CONFIG_TARGET_rockchip_armv8=y
-          CONFIG_TARGET_rockchip_armv8_DEVICE_friendlyarm_nanopi-r6c=y
+    - name: Configure firmware
+       run: |
+        cat >.config <<EOF
+        CONFIG_TARGET_rockchip=y
+        CONFIG_TARGET_rockchip_armv8=y
+        CONFIG_TARGET_rockchip_armv8_DEVICE_friendlyarm_nanopi-r6c=y
+        CONFIG_PACKAGE_kmod-nvme=y
+        CONFIG_PACKAGE_kmod-fs-ext4=y
+        CONFIG_PACKAGE_kmod-fs-f2fs=y
+        CONFIG_PACKAGE_block-mount=y
+        CONFIG_PACKAGE_luci-app-adguardhome=y
+        CONFIG_PACKAGE_luci-app-smartdns=y
+        CONFIG_PACKAGE_luci-app-openclash=y
+        CONFIG_PACKAGE_luci-app-uugamebooster=y
+        CONFIG_PACKAGE_luci-app-sqm=y
+        CONFIG_PACKAGE_luci-app-samba4=y
+        CONFIG_PACKAGE_luci-app-dockerman=y
+        CONFIG_PACKAGE_luci-app-netdata=y
+        CONFIG_PACKAGE_luci-app-cpufreq=y
+        CONFIG_PACKAGE_luci-theme-kucat=y
+        CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
+        EOF
+        make defconfig
 
-          # ===== 驱动（官方已启用 NVMe/GPU/DSI） =====
-          CONFIG_PACKAGE_kmod-nvme=y
-          CONFIG_PACKAGE_kmod-fs-ext4=y
-          CONFIG_PACKAGE_kmod-fs-f2fs=y
-          CONFIG_PACKAGE_block-mount=y
+    - name: Download & Compile
+       run: |
+        make download -j8
+        make -j$(nproc) V=s
 
-          # ===== 插件全家桶 =====
-          CONFIG_PACKAGE_luci-app-adguardhome=y
-          CONFIG_PACKAGE_luci-app-smartdns=y
-          CONFIG_PACKAGE_luci-app-openclash=y
-          CONFIG_PACKAGE_luci-app-uugamebooster=y
-          CONFIG_PACKAGE_luci-app-sqm=y
-          CONFIG_PACKAGE_luci-app-samba4=y
-          CONFIG_PACKAGE_luci-app-dockerman=y
-          CONFIG_PACKAGE_luci-app-netdata=y
-          CONFIG_PACKAGE_luci-app-cpufreq=y
-          CONFIG_PACKAGE_luci-theme-kucat=y
-          CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
-          EOF
-          make defconfig
-
-      - name: Download & Compile
-        run: |
-          make download -j8 V=s
-          make -j$(nproc) V=s
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: friendlywrt-r6c-full-plugins
-          path: bin/targets/rockchip/armv8/*nanopi-r6c*
+    - name: Upload artifact
+       uses: actions/upload-artifact@v3
+       if: success()
+       with:
+         name: ${{env.FILE_NAME}}
+         path: bin/targets/rockchip/armv8/${{env.FILE_NAME}}
